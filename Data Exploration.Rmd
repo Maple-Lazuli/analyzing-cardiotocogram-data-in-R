@@ -1,0 +1,827 @@
+---
+title: "Data Exploration"
+author: "Ada Lazuli"
+date: '2022-07-04'
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(DT)
+library(rpart)
+library(ggplot2)
+library(party)
+```
+
+
+# Helper Functions
+
+This section details the helper function that were used to reduce come of the repetition during exploratory data analysis.
+
+```{r, out.width = '100%'}
+# Create a histogram of the variable with annotations for the mean and outliers
+generate_histogram <- function(df, col, title, x) {
+  ggplot(df, aes(x = col)) + geom_histogram() + 
+    geom_vline(aes(xintercept = mean(col)), color = "red") + 
+    geom_vline(aes(xintercept = mean(col)  - 3 * sd(col)), color = "blue") + 
+    geom_vline(aes(xintercept = mean(col)  +  3 * sd(col)), color = "blue") + 
+    labs(title=title, x = x, y = "Occurrences")
+}
+
+generate_boxplot <- function(df, col, title, x) {
+  ggplot(df, aes(x = col)) + geom_boxplot() + 
+    labs(title=title, x = x, y = "Occurrences")
+}
+
+generate_class_histogram_facet <- function(df, col, title, x){
+  ggplot(df, aes(x = col, fill = CLASS)) +
+    geom_histogram() + coord_flip() +
+    facet_grid(~ CLASS) +
+    labs(title=title, x = x, y = "Occurrences")
+}
+
+
+generate_class_boxplot_facet <- function(df, col, title, x){
+  ggplot(df, aes(x = col, fill = CLASS)) + 
+    geom_boxplot() + coord_flip() + 
+    facet_grid(~ CLASS) +
+    labs(title=title, x = x)
+}
+
+generate_nsp_histogram_facet <- function(df, col, title, x){
+  ggplot(df, aes(x = col, fill = NSP)) +
+    geom_histogram() + coord_flip() +
+    facet_grid(~ NSP) +
+    labs(title=title, x = x, y = "Occurrences")
+}
+
+
+generate_nsp_boxplot_facet <- function(df, col, title, x){
+  ggplot(df, aes(x = col, fill = NSP)) + 
+    geom_boxplot() + coord_flip() + 
+    facet_grid(~ NSP) +
+    labs(title=title, x = x)
+}
+
+
+
+return_outliers <- function(data) {
+  upper_limit <- mean(data) + 3 * sd(data)
+  lower_limit <- mean(data) - 3 * sd(data)
+  
+  mask <- (data > upper_limit)  | (data < lower_limit)
+  
+  return (data[mask])
+}
+
+```
+
+# Data Exploration
+
+```{r, out.width = '100%'}
+df <- read.csv("CTG.csv")
+# convert the classes to factors
+df$CLASS <- as.factor(df$CLASS)
+df$NSP <- as.factor(df$NSP)
+
+```
+
+The data consists of `r nrow(df)` rows that detail the results of Cardiotocograms (CTGs)  and a classification by expert obstetricians (Marques de Sai et al, 2010). For each row, the data contains `r ncol(df)` variables, with the final two being the classifications by experts (Marques de Sai et al, 2010).
+
+```{r, out.width = '100%'}
+str(df)
+datatable(df)
+```
+
+
+## LB - FHR baseline (beats per minute)
+
+The __LB__ variable details the fetal heart rate baseline in terms of beats per minute (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$LB
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Fetal Heartbeat Baseline", "Heartbeat Baseline") 
+generate_boxplot(df, col_of_interest,  "Histogram of Fetal Heartbeat Baseline", "Heartbeat Baseline") 
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of LB by Morphologic Pattern (CLASS)", "Heartbeat Baseline")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of LB by Morphologic Pattern (CLASS)", "Heartbeat Baseline")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of LB by Fetal State Class", "Heartbeat Baseline")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of LB by Fetal State Class", "Heartbeat Baseline")
+```
+
+
+## AC - Accelerations per second
+
+The __AC__ variable details the accelerations per second as recorded during the CTG. (Marques de Sai et al, 2010)
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$AC
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Fetal Accelerations per Second ", "Accelerations per Second ") 
+generate_boxplot(df, col_of_interest,  "Histogram of Fetal Accelerations per Second", "Accelerations per Second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of AC by Morphologic Pattern (CLASS)", "Accelerations per Second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of AC by Morphologic Pattern (CLASS)", "Accelerations per Second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of AC by Fetal State Class", "Accelerations per Second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of AC by Fetal State Class", "Accelerations per Second")
+```
+
+
+
+## FM - Fetal movements per second
+
+The __FM__ variable details the fetal movements per second (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$FM
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Fetal Movements per Second", "Fetal Movements per Second") 
+generate_boxplot(df, col_of_interest,  "Histogram of Fetal Movements per Second", "Fetal Movements per Second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of FM by Morphologic Patternz (CLASS)", "Fetal Movements per Second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of FM by Morphologic Pattern (CLASS)", "Fetal Movements per Second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of FM by Fetal State Class", "Fetal Movements per Second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of FM by Fetal State Class", "Fetal Movements per Second")
+```
+
+
+
+## UC - Uterine contractions per second
+
+The __UC__ variable details the uterine contractions per second  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$UC
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Uterine Contractions Per Second", "Uterine Contractions Per Second") 
+generate_boxplot(df, col_of_interest,  "Histogram of Uterine Contractions Per Second", "Uterine Contractions Per Second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of UC by Morphologic Pattern (CLASS)", "Uterine Contractions Per Second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of UC by Morphologic Pattern (CLASS)", "Uterine Contractions Per Second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of UC by Fetal State Class", "Uterine Contractions Per Second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of UC by Fetal State Class", "Uterine Contractions Per Second")
+```
+
+
+
+## DL - Light decelerations per second
+
+The __DL__ variable details light deceleration per second as recorded during the CTG  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$DL
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Decelerations per Second", "Decelerations per Second") 
+generate_boxplot(df, col_of_interest,  "Histogram of Decelerations per Second", "Decelerations per Second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of DL by Morphologic Pattern (CLASS)", "Decelerations per Second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of DL by Morphologic Pattern (CLASS)", "Decelerations per Second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of DL by Fetal State Class", "Decelerations per Second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of DL by Fetal State Class", "Decelerations per Second")
+```
+
+## DS - Severe decelerations per second
+
+The __DS__ variable details the accelerations per second
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$DS
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Severe decelerations per second", "Severe decelerations per second") 
+generate_boxplot(df, col_of_interest,  "Histogram of Severe decelerations per second", "Severe decelerations per second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of DS by Morphologic Pattern (CLASS)", "Severe decelerations per second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of DS by Morphologic Pattern (CLASS)", "Severe decelerations per second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of DS by Fetal State Class", "Severe decelerations per second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of DS by Fetal State Class", "Severe decelerations per second")
+```
+
+
+## DP - Prolongued Decelerations per Second
+
+The __DP__ variable details the prolongued decelerations per second, as recorded during the CTG  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$DP
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Prolongued Decelerations per Second", "Prolongued Decelerations per Second") 
+generate_boxplot(df, col_of_interest,  "Histogram of Prolongued Decelerations per Second", "Prolongued Decelerations per Second") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of DP by Morphologic Pattern (CLASS)", "Prolongued Decelerations per Second")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of DP by Morphologic Pattern (CLASS)", "Prolongued Decelerations per Second")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of DP by Fetal State Class", "Prolongued Decelerations per Second")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of DP by Fetal State Class", "Prolongued Decelerations per Second")
+```
+
+
+
+## ASTV - Percentage of Time with Abnormal Short Term Variability
+
+The __ASTV__ variable details the percentage of time with abnormal short term variability (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$ASTV
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Percentage of Time with Abnormal Short Term Variability", "Percentage of Time with Abnormal Short Term Variability") 
+generate_boxplot(df, col_of_interest,  "Histogram of Percentage of Time with Abnormal Short Term Variability", "Percentage of Time with Abnormal Short Term Variability") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of ASTV by Morphologic Pattern (CLASS)", "Percentage of Time with Abnormal Short Term Variability")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of ASTV by Morphologic Pattern (CLASS)", "Percentage of Time with Abnormal Short Term Variability")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of ASTV by Fetal State Class", "Percentage of Time with Abnormal Short Term Variability")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of ASTV by Fetal State Class", "Percentage of Time with Abnormal Short Term Variability")
+```
+
+
+
+## MSTV - mean value of short term variability
+
+The __MSTV__ variable details the mean value of short term variability  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$MSTV
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Mean Short Term Variability", "Mean Short Term Variability") 
+generate_boxplot(df, col_of_interest,  "Histogram of Mean Short Term Variability", "Mean Short Term Variability") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of MSTV by Morphologic Pattern (CLASS)", "Mean Short Term Variability")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of MSTV by Morphologic Pattern (CLASS)", "Mean Short Term Variability")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of MSTV by Fetal State Class", "Mean Short Term Variability")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of MSTV by Fetal State Class", "Mean Short Term Variability")
+```
+
+
+## ALTV - percentage of time with abnormal long term variability
+
+The __ALTV__ variable details the percentage of time with abnoramal long term variability  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$ALTV
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Percentage of Time with Abnormal Long Term Variability", "Percentage of Time with Abnormal Long Term Variability") 
+generate_boxplot(df, col_of_interest,  "Histogram of Percentage of Time with Abnormal Long Term Variability", "Percentage of Time with Abnormal Long Term Variability") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of ALTV by Morphologic Pattern (CLASS)", "Percentage of Time with Abnormal Long Term Variability")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of ALTV by Morphologic Pattern (CLASS)", "Percentage of Time with Abnormal Long Term Variability")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of ALTV by Fetal State Class", "Percentage of Time with Abnormal Long Term Variability")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of ALTV by Fetal State Class", "Percentage of Time with Abnormal Long Term Variability")
+```
+
+
+
+## MLTV - mean value of long term variability
+
+
+The __MLTV__ variable details the mean value of long term variability  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$MLTV
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Mean  Long Term Variability", "Mean  Long Term Variability") 
+generate_boxplot(df, col_of_interest,  "Histogram of Mean  Long Term Variability", "Mean  Long Term Variability") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of MLTV by Morphologic Pattern (CLASS)", "Mean  Long Term Variability")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of MLTV by Morphologic Pattern (CLASS)", "Mean  Long Term Variability")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of MLTV by Fetal State Class", "Mean  Long Term Variability")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of MLTV by Fetal State Class", "Mean  Long Term Variability")
+```
+
+
+
+## Width - width of FHR histogram
+
+The __Width__ variable details the width of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Width
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Width of FHR Histogram", "Width of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Width of FHR Histogram", "Width of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Width by Morphologic Pattern (CLASS)", "Width of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Width by Morphologic Pattern (CLASS)", "Width of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Width by Fetal State Class", "Width of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Width by Fetal State Class", "Width of FHR Histogram")
+```
+
+
+
+## Min - minimum of FHR histogram
+
+The __Min__ variable details the minimum in the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Min
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Min of FHR Histogram", "Min of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Min of FHR Histogram", "Min of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Min by Morphologic Pattern (CLASS)", "Min of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Min by Morphologic Pattern (CLASS)", "Min of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Min by Fetal State Class", "Min of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Min by Fetal State Class", "Min of FHR Histogram")
+```
+
+
+
+## Max - Maximum of FHR histogram
+
+The __Max__ variable details the maximum in the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Max
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Max of FHR Histogram", "Max of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Max of FHR Histogram", "Max of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Max by Morphologic Pattern (CLASS)", "Max of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Max by Morphologic Pattern (CLASS)", "Max of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Max by Fetal State Class", "Max of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Max by Fetal State Class", "Max of FHR Histogram")
+```
+
+
+
+## Nmax - # of histogram peaks
+
+The __Nmax__ variable details the number of peaks in the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Nmax
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Number of Histogram Peaks", "Number of Histogram Peaks") 
+generate_boxplot(df, col_of_interest,  "Histogram of Number of Histogram Peaks", "Number of Histogram Peaks") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Nmax by Morphologic Pattern (CLASS)", "Number of Histogram Peaks")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Nmax by Morphologic Pattern (CLASS)", "Number of Histogram Peaks")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Nmax by Fetal State Class", "Number of Histogram Peaks")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Nmax by Fetal State Class", "Number of Histogram Peaks")
+```
+
+
+
+
+## Nzeros - # of histogram zeros
+
+The __Nzeros__ variable details the number of zeros in the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Nzeros
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Number of Histogram Zeros", "Number of Histogram Zeros") 
+generate_boxplot(df, col_of_interest,  "Histogram of Number of Histogram Zeros", "Number of Histogram Zeros") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Nzeros by Morphologic Pattern (CLASS)", "Number of Histogram Zeros")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Nzeros by Morphologic Pattern (CLASS)", "Number of Histogram Zeros")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Nzeros by Fetal State Class", "Number of Histogram Zeros")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Nzeros by Fetal State Class", "Number of Histogram Zeros")
+```
+
+
+
+## Mode - histogram mode
+
+The __Mode __ variable details the mode of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Mode 
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Mode of FHR Histogram", "Mode of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Mode of FHR Histogram", "Mode of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Mode  by Morphologic Pattern (CLASS)", "Mode of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Mode  by Morphologic Pattern (CLASS)", "Mode of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Mode  by Fetal State Class", "Mode of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Mode  by Fetal State Class", "Mode of FHR Histogram")
+```
+
+
+
+## Mean - histogram mean
+
+The __Mean __ variable details the mean of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Mean 
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Mean of FHR Histogram", "Mean of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Mean of FHR Histogram", "Mean of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Mean  by Morphologic Pattern (CLASS)", "Mean of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Mean  by Morphologic Pattern (CLASS)", "Mean of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Mean  by Fetal State Class", "Mean of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Mean  by Fetal State Class", "Mean of FHR Histogram")
+```
+
+
+
+## Median - histogram median
+
+The __Median __ variable details the median of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Median 
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Median of FHR Histogram", "Median of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Median of FHR Histogram", "Median of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Median  by Morphologic Pattern (CLASS)", "Median of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Median  by Morphologic Pattern (CLASS)", "Median of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Median  by Fetal State Class", "Median of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Median  by Fetal State Class", "Median of FHR Histogram")
+```
+
+
+
+
+## Variance - histogram variance
+
+The __Variance __ variable details the variance of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Variance 
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Variance of FHR Histogram", "Variance of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Variance of FHR Histogram", "Variance of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Variance  by Morphologic Pattern (CLASS)", "Variance of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Variance  by Morphologic Pattern (CLASS)", "Variance of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Variance  by Fetal State Class", "Variance of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Variance  by Fetal State Class", "Variance of FHR Histogram")
+```
+
+
+
+## Tendency - histogram tendency
+
+The __Tendency __ variable details the tendency of the CTG heart rate histogram  (Marques de Sai et al, 2010).
+
+### Overview
+
+```{r warning=FALSE}
+col_of_interest <- df$Tendency 
+summary(col_of_interest)
+generate_histogram(df, col_of_interest,  "Histogram of Tendency of FHR Histogram", "Tendency of FHR Histogram") 
+generate_boxplot(df, col_of_interest,  "Histogram of Tendency of FHR Histogram", "Tendency of FHR Histogram") 
+
+```
+
+There were `r length(return_outliers(col_of_interest))` outliers for this column.
+
+
+### Facet By Morphologic Pattern (CLASS)
+
+```{r, out.width = '100%'}
+generate_class_histogram_facet(df, col_of_interest, "Hisogram of Tendency  by Morphologic Pattern (CLASS)", "Tendency of FHR Histogram")
+generate_class_boxplot_facet(df, col_of_interest, "Boxplot of Tendency  by Morphologic Pattern (CLASS)", "Tendency of FHR Histogram")
+```
+
+
+### Facet By Fetal State Class (NSP)
+
+```{r, out.width = '100%'}
+generate_nsp_histogram_facet(df, col_of_interest, "Histogram of Tendency  by Fetal State Class", "Tendency of FHR Histogram")
+generate_nsp_boxplot_facet(df, col_of_interest, "Boxplot of Tendency  by Fetal State Class", "Tendency of FHR Histogram")
+```
+
+
+## CLASS - FHR pattern class code (1 to 10)
+
+
+```{r, out.width = '100%'}
+table(df$CLASS)
+```
+
+
+## NSP - fetal state class code (N=normal; S=suspect; P=pathologic)
+
+```{r, out.width = '100%'}
+table(df$NSP)
+```
+
+
+# References
+
+Marques de Saj, J., Bernardes, J,, & Aryres de Campos, D. (2010). Cardiotocography Data Set [CSV]. Retrieved from: https://archive.ics.uci.edu/ml/datasets/Cardiotocography#
